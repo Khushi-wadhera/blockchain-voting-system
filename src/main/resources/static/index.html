@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blockchain Voting System</title>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+    }
+
+    body {
+        background: #f4f4f4;
+        min-height: 100vh;
+    }
+
+    .header {
+        background: #138808;
+        color: white;
+        padding: 20px;
+        text-align: center;
+        font-size: 28px;
+        font-weight: bold;
+    }
+
+    .sub-header {
+        background: #ff9933;
+        color: white;
+        text-align: center;
+        padding: 10px;
+        font-size: 18px;
+    }
+
+    .container {
+        width: 420px;
+        margin: 40px auto;
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0px 0px 10px gray;
+    }
+
+    h2 {
+        margin: 15px 0;
+        color: #138808;
+        text-align: center;
+    }
+
+    input, select {
+        width: 100%;
+        padding: 12px;
+        margin-top: 12px;
+        border: 1px solid gray;
+        border-radius: 5px;
+    }
+
+    button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 18px;
+        background: #138808;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #0d5f05;
+    }
+
+    #result {
+        margin-top: 20px;
+        background: #f1f1f1;
+        padding: 15px;
+        border-radius: 5px;
+    }
+
+    #loggedInUser {
+        text-align: center;
+        margin-top: 10px;
+        color: green;
+        font-weight: bold;
+    }
+
+    #displayVoterId {
+        background: #eee;
+        font-weight: bold;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="header">Blockchain Voting System</div>
+<div class="sub-header">Secure Digital Election Portal</div>
+
+<div class="container">
+
+    <!-- LOGIN -->
+    <h2>Voter Login</h2>
+    <input type="email" id="loginEmail" placeholder="Enter Email">
+    <input type="password" id="loginPassword" placeholder="Enter Password">
+    <button onclick="loginVoter()">Login</button>
+
+    <div id="loggedInUser"></div>
+
+    <!-- REGISTER -->
+    <h2>Voter Registration</h2>
+    <input type="text" id="name" placeholder="Enter Name">
+    <input type="email" id="email" placeholder="Enter Email">
+    <input type="password" id="password" placeholder="Enter Password">
+    <button onclick="registerVoter()">Register</button>
+
+    <!-- ADD CANDIDATE -->
+    <h2>Add Candidate</h2>
+    <input type="text" id="candName" placeholder="Candidate Name">
+    <input type="text" id="candParty" placeholder="Party Name">
+    <button onclick="addCandidate()">Add Candidate</button>
+
+    <!-- VOTE -->
+    <h2>Cast Vote</h2>
+    <input type="text" id="displayVoterId" placeholder="Voter ID" readonly>
+
+    <select id="candidateName">
+        <option>Loading candidates...</option>
+    </select>
+
+    <button onclick="castVote()">Vote</button>
+
+    <!-- RESULTS -->
+    <h2>Results</h2>
+    <button onclick="getResults()">View Results</button>
+
+    <div id="result"></div>
+
+</div>
+
+<script>
+
+const BASE_URL = "http://localhost:8081";
+
+/* ================= INIT ================= */
+window.onload = function () {
+    refreshUI();
+    loadCandidates();
+};
+
+/* ================= UI REFRESH ================= */
+function refreshUI() {
+    const voterId = localStorage.getItem("voterId");
+
+    document.getElementById("displayVoterId").value = voterId || "";
+    document.getElementById("loggedInUser").innerText = "";
+}
+
+/* ================= LOAD CANDIDATES ================= */
+async function loadCandidates() {
+    try {
+        const res = await fetch(`${BASE_URL}/candidates`);
+        const data = await res.json();
+
+        const dropdown = document.getElementById("candidateName");
+        dropdown.innerHTML = "";
+
+        if (!data || data.length === 0) {
+            dropdown.innerHTML = `<option>No candidates available</option>`;
+            return;
+        }
+
+        data.forEach(c => {
+            const option = document.createElement("option");
+            option.value = c.id;
+            option.text = `${c.name} (${c.party})`;
+            dropdown.appendChild(option);
+        });
+
+    } catch (err) {
+        console.log(err);
+    }
+}
+
+/* ================= REGISTER ================= */
+async function registerVoter() {
+
+    await fetch(`${BASE_URL}/voters`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            name: document.getElementById("name").value,
+            email: document.getElementById("email").value,
+            password: document.getElementById("password").value
+        })
+    });
+
+    alert("Registered Successfully");
+}
+
+/* ================= LOGIN ================= */
+async function loginVoter() {
+
+    const res = await fetch(`${BASE_URL}/voters/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            email: document.getElementById("loginEmail").value,
+            password: document.getElementById("loginPassword").value
+        })
+    });
+
+    if (!res.ok) {
+        alert("Invalid Login");
+        return;
+    }
+
+    const data = await res.json();
+
+    localStorage.clear();
+    localStorage.setItem("voterId", data.id);
+
+    refreshUI();
+    loadCandidates();
+
+    alert("Login Successful");
+}
+
+/* ================= ADD CANDIDATE ================= */
+async function addCandidate() {
+
+    await fetch(`${BASE_URL}/candidates/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            name: document.getElementById("candName").value,
+            party: document.getElementById("candParty").value,
+            votes: 0
+        })
+    });
+
+    document.getElementById("candName").value = "";
+    document.getElementById("candParty").value = "";
+
+    loadCandidates();
+    alert("Candidate Added");
+}
+
+/* ================= CAST VOTE ================= */
+async function castVote() {
+
+    const voterId = localStorage.getItem("voterId");
+
+    if (!voterId) {
+        alert("Please login first");
+        return;
+    }
+
+    await fetch(`${BASE_URL}/voters/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            voterId: Number(voterId),
+            candidateId: Number(document.getElementById("candidateName").value)
+        })
+    });
+
+    alert("Vote Cast Successfully");
+    loadCandidates();
+}
+
+/* ================= RESULTS ================= */
+async function getResults() {
+
+    const res = await fetch(`${BASE_URL}/results`);
+    const data = await res.json();
+
+    const leaderboard = data.leaderboard || [];
+
+    let output = "";
+
+    leaderboard.forEach(r => {
+        output += `<p><b>${r.name}</b> (${r.party}) : ${r.votes} votes</p>`;
+    });
+
+    output += `<hr>`;
+    output += `<p><b>Total Votes:</b> ${data.totalVotes}</p>`;
+    output += `<p><b>Winner:</b> ${data.partyWinner}</p>`;
+
+    document.getElementById("result").innerHTML = output;
+}
+
+</script>
+
+</body>
+</html> 
